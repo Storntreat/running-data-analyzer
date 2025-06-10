@@ -4,9 +4,9 @@ This application will allow users to upload data from their runs and training se
 
 **Features**
 
--App allows users to upload a CSV file containing running data (time, distance, pace, heart rate, etc.)
+-App allows users to upload a gpx file containing running data (time, distance, pace, heart rate, etc.)
 
--Data is displayed in clean, interactive line charts (e.g., pace over time, HR trends)
+-Data is displayed in clean, interactive line charts, plotted against any value (e.g., pace over time, HR trends)
 
 -User can enter a target race time (e.g., 1500m in 5:30), and the app will generate ideal lap splits
 
