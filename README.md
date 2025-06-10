@@ -3,6 +3,7 @@ Running Data Visualizer is a Streamlit-based app that lets users upload .csv run
 
 # Features
 Ability to upload CSV File (running data)
+/nr
 Displays Interactive Line Charts (pace, HR, etc.)
 Enter Target Race Time and Generate Ideal Splits
 Visual Feedback on Pacing Consistency
