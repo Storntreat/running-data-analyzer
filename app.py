@@ -26,34 +26,41 @@ if uploaded_file:
                         'elevation': point.elevation,
                     }
 
-                    # Heart rate from extensions
+                    # Extract heart rate if present
                     if point.extensions:
                         for ext in point.extensions:
                             for child in ext:
                                 if 'hr' in child.tag.lower():
                                     row['heart_rate'] = int(child.text)
 
-                    # Distance between points
+                    # Calculate distance between current and previous point
                     if i > 0:
                         prev = segment.points[i - 1]
-                        d = geodesic((prev.latitude, prev.longitude), (point.latitude, point.longitude)).meters
+                        d = geodesic(
+                            (prev.latitude, prev.longitude),
+                            (point.latitude, point.longitude)
+                        ).meters
                         row['distance_delta'] = d
+                        row['time_delta'] = (point.time - prev.time).total_seconds()
                     else:
                         row['distance_delta'] = 0.0
+                        row['time_delta'] = 0.0
 
                     data.append(row)
 
         df = pd.DataFrame(data)
 
-        # Compute time, distance, pace
+        # Add elapsed time and cumulative distance
         df['elapsed_sec'] = (df['time'] - df['time'].iloc[0]).dt.total_seconds()
         df['elapsed_min'] = df['elapsed_sec'] / 60
         df['distance_m'] = df['distance_delta'].cumsum()
         df['distance_km'] = df['distance_m'] / 1000
 
-        # Calculate pace (min/km)
-        df['pace_min_per_km'] = df['elapsed_min'] / df['distance_km']
-        df['pace_min_per_km'] = df['pace_min_per_km'].replace([float('inf')], None)
+        # Calculate current pace (min/km) per segment
+        df['delta_time_min'] = df['time_delta'] / 60
+        df['delta_distance_km'] = df['distance_delta'] / 1000
+        df['pace_min_per_km'] = df['delta_time_min'] / df['delta_distance_km']
+        df['pace_min_per_km'] = df['pace_min_per_km'].replace([float('inf'), -float('inf')], None)
 
         st.success("✅ File parsed successfully!")
         st.dataframe(df, use_container_width=True, height=400)
@@ -61,7 +68,7 @@ if uploaded_file:
         # Tabs
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "⏱️ Time vs Distance",
-            "⚡ Pace vs Distance",
+            "⚡ Current Pace vs Distance",
             "❤️ Heart Rate vs Distance",
             "🗻 Elevation vs Distance",
             "📊 Custom Plot"
@@ -73,15 +80,17 @@ if uploaded_file:
                 'distance_km': "Distance (km)",
                 'elapsed_min': "Time (min)"
             })
+            fig.update_traces(hovertemplate='Distance: %{x:.2f} km<br>Time: %{y:.2f} min')
             fig.update_layout(hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
         with tab2:
-            st.subheader("Pace vs Distance (min/km)")
+            st.subheader("Current Pace vs Distance (min/km)")
             fig = px.line(df, x='distance_km', y='pace_min_per_km', labels={
                 'distance_km': "Distance (km)",
-                'pace_min_per_km': "Pace (min/km)"
+                'pace_min_per_km': "Current Pace (min/km)"
             })
+            fig.update_traces(hovertemplate='Distance: %{x:.2f} km<br>Pace: %{y:.2f} min/km')
             fig.update_layout(hovermode="x unified", yaxis=dict(autorange="reversed"))
             st.plotly_chart(fig, use_container_width=True)
 
@@ -92,6 +101,7 @@ if uploaded_file:
                     'distance_km': "Distance (km)",
                     'heart_rate': "Heart Rate (bpm)"
                 })
+                fig.update_traces(hovertemplate='Distance (km) %{x:.2f} km<br>Heart Rate: %{y:.0f} bpm')
                 fig.update_layout(hovermode="x unified")
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -103,6 +113,7 @@ if uploaded_file:
                 'distance_km': "Distance (km)",
                 'elevation': "Elevation (m)"
             })
+            fig.update_traces(hovertemplate='Distance: %{x:.2f} km<br>Elevation: %{y:.2f} m')
             fig.update_layout(hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
