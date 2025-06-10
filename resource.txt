@@ -1,0 +1,106 @@
+Prompt: i want to connect my github repositry to visual studio code please give me all the steps
+
+Response (ChatGPT):
+Absolutely! Here are step-by-step instructions to connect your Streamlit project to Visual Studio Code (VS Code) and run your app locally:
+
+✅ Step 1: Install VS Code
+If you haven’t already:
+
+Download and install it from: https://code.visualstudio.com
+
+✅ Step 2: Install Python Extension
+Open VS Code.
+
+Go to the Extensions panel (left sidebar, or press Ctrl+Shift+X).
+
+Search for “Python” and install the one published by Microsoft.
+
+✅ Step 3: Clone Your GitHub Repository (if you haven't)
+Open a terminal and run:
+
+bash
+Copy
+Edit
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+Or in VS Code:
+
+Open Command Palette (Ctrl+Shift+P) → Git: Clone → paste the repo URL.
+
+✅ Step 4: Open Project in VS Code
+In VS Code, go to File > Open Folder.
+
+Select your project folder (the one you just cloned or created).
+
+It should now show your project files like app.py, README.md, etc.
+
+✅ Step 5: Set Up a Virtual Environment (Optional but Recommended)
+In the VS Code terminal:
+
+bash
+Copy
+Edit
+python -m venv venv        # or use python3 on Mac
+Then activate it:
+
+Windows:
+
+bash
+Copy
+Edit
+venv\Scripts\activate
+Mac/Linux:
+
+bash
+Copy
+Edit
+source venv/bin/activate
+You’ll see (venv) at the start of your terminal line if successful.
+
+✅ Step 6: Install Required Libraries
+Run this in the VS Code terminal:
+
+bash
+Copy
+Edit
+pip install -r requirements.txt
+If you haven't created requirements.txt yet, you can manually install essentials:
+
+bash
+Copy
+Edit
+pip install streamlit pandas matplotlib plotly
+✅ Step 7: Run the App
+In the terminal:
+
+bash
+Copy
+Edit
+streamlit run app.py
+This will launch the app in your default browser at http://localhost:8501.
+
+✅ Step 8: Auto-Save and Live Reload (Optional Tips)
+VS Code will auto-save your file if you enable it: File > Auto Save.
+
+Streamlit will detect file changes and auto-refresh the app.
+
+✅ Step 9: Version Control with Git
+To commit and push changes:
+
+bash
+Copy
+Edit
+git add .
+git commit -m "Initial commit"
+git push origin main
+Let me know if you want help setting up a .env file, using SQLite inside this project, or deploying it online after development!
+
+
+
+
+
+
+
+
+
+
