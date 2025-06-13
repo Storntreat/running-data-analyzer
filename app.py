@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import timedelta
 from geopy.distance import geodesic
+import io
 
 st.set_page_config(page_title="Running Data Visualizer", layout="wide")
 st.title("🏃 Running Data Visualizer")
@@ -26,14 +27,12 @@ if uploaded_file:
                         'elevation': point.elevation,
                     }
 
-                    # Extract heart rate if present
                     if point.extensions:
                         for ext in point.extensions:
                             for child in ext:
                                 if 'hr' in child.tag.lower():
                                     row['heart_rate'] = int(child.text)
 
-                    # Calculate distance between current and previous point
                     if i > 0:
                         prev = segment.points[i - 1]
                         d = geodesic(
@@ -49,23 +48,86 @@ if uploaded_file:
                     data.append(row)
 
         df = pd.DataFrame(data)
-
-        # Add elapsed time and cumulative distance
         df['elapsed_sec'] = (df['time'] - df['time'].iloc[0]).dt.total_seconds()
         df['elapsed_min'] = df['elapsed_sec'] / 60
         df['distance_m'] = df['distance_delta'].cumsum()
         df['distance_km'] = df['distance_m'] / 1000
 
-        # Calculate current pace (min/km) per segment
         df['delta_time_min'] = df['time_delta'] / 60
         df['delta_distance_km'] = df['distance_delta'] / 1000
         df['pace_min_per_km'] = df['delta_time_min'] / df['delta_distance_km']
         df['pace_min_per_km'] = df['pace_min_per_km'].replace([float('inf'), -float('inf')], None)
 
-        st.success("✅ File parsed successfully!")
-        st.dataframe(df, use_container_width=True, height=400)
+        # Summary cards
+        st.subheader("📈 Summary Metrics")
+        col1, col2, col3, col4 = st.columns(4)
+        total_distance_km = df['distance_km'].max()
+        total_time_min = df['elapsed_min'].max()
+        avg_pace = df['delta_time_min'].sum() / df['delta_distance_km'].sum()
+        max_hr = df['heart_rate'].max() if 'heart_rate' in df.columns else None
 
-        # Tabs
+        col1.metric("Total Distance", f"{total_distance_km:.2f} km")
+        col2.metric("Total Time", f"{int(total_time_min)} min")
+        col3.metric("Avg. Pace", f"{avg_pace:.2f} min/km")
+        col4.metric("Max HR", f"{int(max_hr)} bpm" if max_hr else "N/A")
+
+        with st.expander("See More Stats"):
+            min_pace = df['pace_min_per_km'].min()
+            max_pace = df['pace_min_per_km'].max()
+            elev_gain = df['elevation'].diff().clip(lower=0).sum()
+            elev_loss = df['elevation'].diff().clip(upper=0).abs().sum()
+
+            st.write(f"**Min Pace:** {min_pace:.2f} min/km")
+            st.write(f"**Max Pace:** {max_pace:.2f} min/km")
+            st.write(f"**Elevation Gain:** {elev_gain:.2f} m")
+            st.write(f"**Elevation Loss:** {elev_loss:.2f} m")
+
+        # AI feedback
+        st.subheader("🧠 Training Feedback")
+        feedback = ""
+
+        if avg_pace < 4:
+            feedback += "⚡ You're running at a very fast pace. Consider recovery runs between hard sessions.\n\n"
+        elif avg_pace < 5:
+            feedback += "💪 Strong pace! Maintain consistency and consider interval work to go faster.\n\n"
+        else:
+            feedback += "🏃 Keep it up! Try tempo runs or increase volume to improve speed.\n\n"
+
+        if max_hr and max_hr > 180:
+            feedback += "❤️ High max heart rate detected. Be mindful of intensity and recovery."
+        elif max_hr:
+            feedback += "✅ Heart rate looks controlled — you're training at a manageable effort."
+
+        # Pace trend suggestion
+        pace_std = df['pace_min_per_km'].std()
+
+        if pace_std < 0.2:
+            trend_feedback = "✅ Your pacing is very consistent. This is great for endurance events."
+        elif pace_std < 0.5:
+            trend_feedback = "ℹ️ Moderate pacing variation detected. You might benefit from controlled tempo efforts."
+        else:
+            trend_feedback = "⚠️ Your pacing is quite variable. Try intervals or steady-state runs to improve control."
+
+        st.info(feedback)
+        st.info(trend_feedback)
+
+        # Round for table
+        df_display = df.copy()
+        for col in df_display.select_dtypes(include=['float64', 'int64']).columns:
+            df_display[col] = df_display[col].round(2)
+
+        st.dataframe(df_display, use_container_width=True, height=400)
+
+        # --- Download Button ---
+        csv_buffer = io.StringIO()
+        df_display.to_csv(csv_buffer, index=False)
+        st.download_button(
+            label="📥 Download Workout Data as CSV",
+            data=csv_buffer.getvalue(),
+            file_name="workout_data.csv",
+            mime="text/csv"
+        )
+
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "⏱️ Time vs Distance",
             "⚡ Current Pace vs Distance",
@@ -101,7 +163,7 @@ if uploaded_file:
                     'distance_km': "Distance (km)",
                     'heart_rate': "Heart Rate (bpm)"
                 })
-                fig.update_traces(hovertemplate='Distance (km) %{x:.2f} km<br>Heart Rate: %{y:.0f} bpm')
+                fig.update_traces(hovertemplate='Distance: %{x:.2f} km<br>Heart Rate: %{y:.0f} bpm')
                 fig.update_layout(hovermode="x unified")
                 st.plotly_chart(fig, use_container_width=True)
             else:
@@ -120,13 +182,47 @@ if uploaded_file:
         with tab5:
             st.subheader("📊 Custom Plot: Choose X and Y Variables")
             numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-
             x_axis = st.selectbox("Select X-axis", numeric_cols, index=0)
             y_axis = st.selectbox("Select Y-axis", numeric_cols, index=1)
-
             fig = px.line(df, x=x_axis, y=y_axis, title=f"{y_axis} vs {x_axis}")
             fig.update_layout(hovermode="x unified")
             st.plotly_chart(fig, use_container_width=True)
 
     except Exception as e:
         st.error(f"⚠️ Error processing GPX file: {e}")
+
+# --- Ideal Splits Generator ---
+st.markdown("---")
+with st.expander("🎯 Generate Ideal Race Splits"):
+    st.subheader("Enter Race Goal")
+    total_distance = st.number_input("Race Distance (meters)", min_value=100, value=1500, step=100)
+    target_minutes = st.number_input("Target Time - Minutes", min_value=0, value=5)
+    target_seconds = st.number_input("Target Time - Seconds", min_value=0, max_value=59, value=0)
+    split_interval = st.selectbox("Split Interval", options=[100, 200, 400, 1000])
+    pacing_style = st.radio("Pacing Style", options=["Even", "Negative", "Positive"])
+
+    if st.button("Generate Splits"):
+        total_seconds = target_minutes * 60 + target_seconds
+        num_splits = int(total_distance // split_interval)
+        split_time = total_seconds / num_splits
+        splits = []
+
+        for i in range(1, num_splits + 1):
+            if pacing_style == "Even":
+                pace = split_time
+            elif pacing_style == "Negative":
+                pace = split_time * (1 - 0.02 * (i - 1))
+            elif pacing_style == "Positive":
+                pace = split_time * (1 + 0.02 * (i - 1))
+
+            cumulative_sec = sum([s['Cumulative Sec'] for s in splits]) + pace
+            splits.append({
+                "Split #": i,
+                f"{split_interval}m Time": f"{int(pace // 60)}:{int(pace % 60):02}",
+                "Cumulative Time": f"{int(cumulative_sec // 60)}:{int(cumulative_sec % 60):02}",
+                "Cumulative Sec": cumulative_sec
+            })
+
+        split_df = pd.DataFrame(splits).drop(columns="Cumulative Sec")
+        st.success("✅ Ideal splits calculated!")
+        st.dataframe(split_df, use_container_width=True)
