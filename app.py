@@ -225,7 +225,9 @@ with st.expander("🎯 Generate Ideal Race Splits"):
         num_splits = int(total_distance // split_interval)
         split_time = total_seconds / num_splits
         splits = []
+        cumulative_sec = 0 
 
+        #calculation for pacing style
         for i in range(1, num_splits + 1):
             if pacing_style == "Even":
                 pace = split_time
@@ -234,15 +236,14 @@ with st.expander("🎯 Generate Ideal Race Splits"):
             elif pacing_style == "Positive":
                 pace = split_time * (1 + 0.02 * (i - 1))
 
-        #calculates cumulative seconds passed after every split
             cumulative_sec += pace
+
             splits.append({
                 "Split #": i,
                 f"{split_interval}m Time": f"{int(pace // 60)}:{int(pace % 60):02}",
-                "Cumulative Time": f"{int(cumulative_sec // 60)}:{int(cumulative_sec % 60):02}",
-                "Cumulative Sec": cumulative_sec
+                "Cumulative Time": f"{int(cumulative_sec // 60)}:{int(cumulative_sec % 60):02}"
             })
 
-        split_df = pd.DataFrame(splits).drop(columns="Cumulative Sec")
+        split_df = pd.DataFrame(splits)
         st.success("✅ Ideal splits calculated!")
         st.dataframe(split_df, use_container_width=True)
